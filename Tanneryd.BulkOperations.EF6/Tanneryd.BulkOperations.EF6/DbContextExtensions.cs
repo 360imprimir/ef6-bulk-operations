@@ -958,6 +958,10 @@ namespace Tanneryd.BulkOperations.EF6
                 .Where(m => selectedKeyMembers.Contains(m.TableColumn.Name))
                 .ToArray();
 
+            var selectedColumnMappings = columnMappings.Values
+                .Where(m => !selectedKeyMembers.Contains(m.TableColumn.Name))
+                .ToArray();
+
             if (selectedKeyMappings.Any())
             {
                 //
@@ -968,8 +972,8 @@ namespace Tanneryd.BulkOperations.EF6
                 //
                 var modifiedColumnMappingCandidates = columnMappings.Values
                     .Where(m => !allKeyMembers.Contains(m.TableColumn.Name))
-                    .Select(m => m)
                     .ToArray();
+
                 if (updatedColumnNames.Any())
                 {
                     modifiedColumnMappingCandidates = modifiedColumnMappingCandidates
@@ -983,45 +987,44 @@ namespace Tanneryd.BulkOperations.EF6
                 //
                 var conn = GetSqlConnection(ctx);
                 var tempTableName = FillTempTable(conn, entities, tableName, columnMappings, selectedKeyMappings,
-                    modifiedColumnMappings, transaction);
+                    request.InsertIfNew ? selectedColumnMappings : modifiedColumnMappings, transaction);
 
                 //
                 // Update the target table using the temp table we just created.
                 //
-                var setStatements =
-                    modifiedColumnMappings.Select(c => $"t0.[{c.TableColumn.Name}] = t1.[{c.TableColumn.Name}]");
-                var setStatementsSql = string.Join(" , ", setStatements);
                 var conditionStatements =
-                    selectedKeyMappings.Select(c => $"t0.[{c.TableColumn.Name}] = t1.[{c.TableColumn.Name}]");
+                    selectedKeyMappings.Select(c => c.TableColumn.Nullable ? $"((t0.[{c.TableColumn.Name}] IS NULL AND t1.[{c.TableColumn.Name}] IS NULL) OR (t0.[{c.TableColumn.Name}] = t1.[{c.TableColumn.Name}]))" : $"(t0.[{c.TableColumn.Name}] = t1.[{c.TableColumn.Name}])");
                 var conditionStatementsSql = string.Join(" AND ", conditionStatements);
-                var cmdBody = $@"MERGE INTO {tableName.Fullname} t0
-                                 USING {tempTableName} AS t1
-                                 ON {conditionStatementsSql}
-                                 WHEN MATCHED
-                                 THEN UPDATE
-                                 SET {setStatementsSql};";
-                var cmd = CreateSqlCommand(cmdBody, conn, request.Transaction, request.CommandTimeout);
-                rowsAffected += cmd.ExecuteNonQuery();
+                var cmdBody =
+                    $"MERGE INTO {tableName.Fullname} t0 USING {tempTableName} AS t1 ON {conditionStatementsSql}";
+
+                if (modifiedColumnMappings.Length > 0)
+                {
+                    var setStatements =
+                        modifiedColumnMappings.Select(c => $"t0.[{c.TableColumn.Name}] = t1.[{c.TableColumn.Name}]");
+                    var setStatementsSql = string.Join(" , ", setStatements);
+
+                    cmdBody += $" WHEN MATCHED THEN UPDATE SET {setStatementsSql}";
+                }
 
                 if (request.InsertIfNew)
                 {
-                    var columns = columnMappings.Values
-                        .Where(m => !primaryKeyMembers.Contains(m.TableColumn.Name))
-                        .Select(m => m.TableColumn.Name)
-                        .ToArray();
-                    var columnNames = string.Join(",", columns.Select(c => $"[{c}]"));
-                    var t0ColumnNames = string.Join(",", columns.Select(c => $"[t0].[{c}]"));
-                    cmdBody = $@"INSERT INTO {tableName.Fullname}
-                             SELECT {columnNames}
-                             FROM {tempTableName}
-                             EXCEPT
-                             SELECT {t0ColumnNames}
-                             FROM {tempTableName} AS t0
-                             INNER JOIN {tableName.Fullname} AS t1 ON {conditionStatementsSql}            
-                            ";
-                    cmd = CreateSqlCommand(cmdBody, conn, request.Transaction, request.CommandTimeout);
-                    rowsAffected += cmd.ExecuteNonQuery();
+                    var columns = selectedKeyMappings
+                        .Concat(selectedColumnMappings)
+                        .Where(m => m.TableColumn.StoreGeneratedPattern == StoreGeneratedPattern.None)
+                        .ToList();
+
+                    var columnNames = string.Join(",", columns.Select(c => $"[{c.TableColumn.Name}]"));
+                    var t1ColumnNames = string.Join(",", columns.Select(c => $"[t1].[{c.TableColumn.Name}]"));
+                    cmdBody += $" WHEN NOT MATCHED THEN INSERT ({columnNames}) VALUES ({t1ColumnNames})";
                 }
+
+                cmdBody += ";";
+
+                var cmd = CreateSqlCommand(cmdBody, conn, request.Transaction, request.CommandTimeout);
+                rowsAffected += cmd.ExecuteNonQuery();
+
+
 
                 //
                 // Clean up. Delete the temp table.
