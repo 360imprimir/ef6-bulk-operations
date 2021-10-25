@@ -685,7 +685,7 @@ namespace Tanneryd.BulkOperations.EF6
 
                 if (condStatementsSql.Length > 0)
                 {
-                    query += $" WHERE NOT ({conditionStatementsSql})";
+                    query += $" WHERE NOT ({condStatementsSql})";
                 }
 
                 var cmd = CreateSqlCommand(query, conn, request.Transaction, request.CommandTimeout);
