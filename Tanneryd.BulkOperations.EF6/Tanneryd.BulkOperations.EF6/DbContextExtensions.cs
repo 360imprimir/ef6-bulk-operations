@@ -598,7 +598,7 @@ namespace Tanneryd.BulkOperations.EF6
 
         private static void DoBulkDeleteExisting<T1, T2>(DbContext ctx, BulkDeleteRequest<T1> request)
         {
-            if (!request.Items.Any()) return;
+            if (request.Items.Count == 0) return;
 
             Type t = typeof(T2);
             var mappings = _mappingExtractor.GetMappings(ctx, t);
@@ -609,7 +609,7 @@ namespace Tanneryd.BulkOperations.EF6
             var items = request.Items;
             var conn = GetSqlConnection(ctx);
 
-            if (!itemPropertyByEntityProperty.Any())
+            if (itemPropertyByEntityProperty.Count == 0)
             {
                 throw new ArgumentException(
                     "The KeyPropertyMappings request property must be set and contain at least one name.");
@@ -618,9 +618,9 @@ namespace Tanneryd.BulkOperations.EF6
             // Get EF key mappings for the entity properties we are selecting on.
             var keyMappings = columnMappings.Values
                 .Where(m => request.KeyPropertyMappings.Any(kpm => kpm.EntityPropertyName == m.EntityProperty.Name))
-                .ToDictionary(m => m.EntityProperty.Name, m => m);
+                .ToDictionary(m => m.EntityProperty.Name);
 
-            if (keyMappings.Any())
+            if (keyMappings.Count != 0)
             {
                 var containsIdentityKey = keyMappings.Any(m =>
                     m.Value.TableColumn.IsStoreGeneratedIdentity &&
