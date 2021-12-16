@@ -103,7 +103,7 @@ namespace Tanneryd.BulkOperations.EF6
         /// <param name="ctx"></param>
         /// <param name="request"></param>
         /// <returns></returns>
-        public static IList<T2> BulkSelect<T1, T2>(
+        public static List<T2> BulkSelect<T1, T2>(
             this DbContext ctx,
             BulkSelectRequest<T1> request) where T2 : new()
         {
@@ -119,7 +119,7 @@ namespace Tanneryd.BulkOperations.EF6
         /// <typeparam name="T2">The EF entity type</typeparam>
         /// <param name="ctx"></param>
         /// <param name="request"></param>
-        public static IList<T1> BulkSelectExisting<T1, T2>(
+        public static List<T1> BulkSelectExisting<T1, T2>(
             this DbContext ctx,
             BulkSelectRequest<T1> request)
         {
@@ -134,7 +134,7 @@ namespace Tanneryd.BulkOperations.EF6
         /// <typeparam name="T"></typeparam>
         /// <param name="ctx"></param>
         /// <param name="request"></param>
-        public static IList<T1> BulkSelectNotExisting<T1, T2>(
+        public static List<T1> BulkSelectNotExisting<T1, T2>(
             this DbContext ctx,
             BulkSelectRequest<T1> request)
         {
@@ -489,7 +489,7 @@ namespace Tanneryd.BulkOperations.EF6
         /// <param name="ctx"></param>
         /// <param name="request"></param>
         /// <returns></returns>
-        private static IList<T1> DoBulkSelectNotExisting<T1, T2>(DbContext ctx, BulkSelectRequest<T1> request)
+        private static List<T1> DoBulkSelectNotExisting<T1, T2>(DbContext ctx, BulkSelectRequest<T1> request)
         {
             if (!request.Items.Any()) return new List<T1>();
 
@@ -804,7 +804,7 @@ namespace Tanneryd.BulkOperations.EF6
         /// <param name="ctx"></param>
         /// <param name="request"></param>
         /// <returns></returns>
-        private static IList<T2> DoBulkSelect<T1, T2>(DbContext ctx, BulkSelectRequest<T1> request) where T2 : new()
+        private static List<T2> DoBulkSelect<T1, T2>(DbContext ctx, BulkSelectRequest<T1> request) where T2 : new()
         {
             if (!request.Items.Any()) return new List<T2>();
 
@@ -922,7 +922,7 @@ namespace Tanneryd.BulkOperations.EF6
         /// <param name="ctx"></param>
         /// <param name="request"></param>
         /// <returns></returns>
-        private static IList<T1>
+        private static List<T1>
             DoBulkSelectExisting<T1, T2>(DbContext ctx, BulkSelectRequest<T1> request)
         {
             if (!request.Items.Any()) return new List<T1>();
