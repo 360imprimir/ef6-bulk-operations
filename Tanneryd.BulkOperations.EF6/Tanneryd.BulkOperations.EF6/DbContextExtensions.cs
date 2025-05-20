@@ -14,19 +14,17 @@
  * limitations under the License.
  */
 
+using Microsoft.Data.SqlClient;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Entity;
-using System.Data.Entity.Core.Mapping;
 using System.Data.Entity.Core.Metadata.Edm;
-using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Dynamic;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using Tanneryd.BulkOperations.EF6.Model;
 
 namespace Tanneryd.BulkOperations.EF6
@@ -207,7 +205,7 @@ namespace Tanneryd.BulkOperations.EF6
 
 
         /// <summary>
-        /// Insert all entities using System.Data.SqlClient.SqlBulkCopy. 
+        /// Insert all entities using Microsoft.Data.SqlClient.SqlBulkCopy. 
         /// </summary>
         /// <param name="ctx"></param>
         /// <param name="entities"></param>
@@ -698,8 +696,6 @@ namespace Tanneryd.BulkOperations.EF6
 
         private static void DoBulkDeleteNotExisting<T1, T2>(DbContext ctx, BulkDeleteRequest<T1> request)
         {
-            if (!request.Items.Any()) return;
-
             Type t = typeof(T2);
             var mappings = _mappingExtractor.GetMappings(ctx, t);
             var tableName = mappings.TableName;
@@ -758,7 +754,7 @@ namespace Tanneryd.BulkOperations.EF6
                 if (containsIdentityKey) EnableIdentityInsert(tempTableName, conn, request.Transaction);
 
                 int i = 0;
-                var type = items[0].GetType();
+                var type = typeof(T1);
                 foreach (var entity in items)
                 {
                     var e = entity;
@@ -1002,7 +998,9 @@ namespace Tanneryd.BulkOperations.EF6
                 });
 
                 var conditionStatementsSql = string.Join(" AND ", conditionStatements);
-                var query = $@"SELECT DISTINCT [t0].[rowno]
+                // We could improve performance here by replacing "[t1].*" below with the actual
+                // columns as specified in request.ColumnPropertyMappings.
+                var query = $@"SELECT DISTINCT [t0].[rowno], [t1].*
                                FROM {tempTableName} AS [t0]
                                INNER JOIN {tableName.Fullname} AS [t1] ON {conditionStatementsSql}";
 
@@ -1015,6 +1013,11 @@ namespace Tanneryd.BulkOperations.EF6
                     while (sqlDataReader.Read())
                     {
                         var rowNo = (int)sqlDataReader[0];
+                        var item = items[rowNo];
+                        foreach (var cpm in request.ColumnPropertyMappings)
+                        {
+                            SetProperty(cpm.ItemPropertyName, item, sqlDataReader[cpm.EntityPropertyName]);    
+                        }
                         existingEntities.Add(items[rowNo]);
                     }
                 }
@@ -1040,8 +1043,6 @@ namespace Tanneryd.BulkOperations.EF6
         {
             var rowsAffected = 0;
 
-            var keyMemberNames = request.KeyPropertyNames;
-            var updatedColumnNames = request.UpdatedColumnNames;
             var entities = request.Entities;
             var transaction = request.Transaction;
 
@@ -1049,6 +1050,10 @@ namespace Tanneryd.BulkOperations.EF6
             var mappings = _mappingExtractor.GetMappings(ctx, t);
             var tableName = mappings.TableName;
             var columnMappings = mappings.ColumnMappingByPropertyName;
+            var keyPropertyNames = request.KeyPropertyNames;
+            var updatedPropertyNames = request.UpdatedPropertyNames;
+            var keyColumnNames = keyPropertyNames.Select(n=>columnMappings[n].TableColumn.Name).ToArray();
+            var updatedColumnNames = updatedPropertyNames.Select(n=>columnMappings[n].TableColumn.Name).ToArray();
 
             //
             // Check to see if the table has a primary key. If so,
@@ -1056,10 +1061,10 @@ namespace Tanneryd.BulkOperations.EF6
             //
             var primaryKeyMembers = GetPrimaryKeyMembers(columnMappings);
 
-            var selectedKeyMembers = keyMemberNames.Any() ? keyMemberNames : primaryKeyMembers.ToArray();
+            var selectedKeyMembers = keyPropertyNames.Any() ? keyPropertyNames : primaryKeyMembers.ToArray();
             var allKeyMembers = new List<string>();
             allKeyMembers.AddRange(primaryKeyMembers);
-            allKeyMembers.AddRange(keyMemberNames);
+            allKeyMembers.AddRange(keyPropertyNames);
 
             var selectedKeyMappings = columnMappings.Values
                 .Where(m => selectedKeyMembers.Contains(m.TableColumn.Name))
@@ -1084,7 +1089,7 @@ namespace Tanneryd.BulkOperations.EF6
                 if (updatedColumnNames.Any())
                 {
                     modifiedColumnMappingCandidates = modifiedColumnMappingCandidates
-                        .Where(c => updatedColumnNames.Contains(c.EntityProperty.Name)).ToArray();
+                        .Where(c => updatedColumnNames.Contains(c.TableColumn.Name)).ToArray();
                 }
 
                 var modifiedColumnMappings = modifiedColumnMappingCandidates.ToArray();
@@ -1213,18 +1218,21 @@ namespace Tanneryd.BulkOperations.EF6
                                 PropertyInfo toPropertyInfo = t.GetProperty(foreignKeyRelation.ToProperty);
                                 var navPropertyKeyType = toPropertyInfo.PropertyType;
                                 var isGuid = IsGuid(navPropertyKeyType);
+                                var isDateTime = IsDateTime(navPropertyKeyType);
                                 var navPropertyKey = GetProperty(t, foreignKeyRelation.ToProperty, entity);
 
                                 // we do nothing unless the one-to-one
                                 // nav property in previously unknown
-                                if (navPropertyKey == null ||
-                                    (isGuid && navPropertyKey == Guid.Empty) ||
+                                if (navPropertyKey == null ||                                    
+                                    (isGuid && navPropertyKey == default(Guid)) ||
+                                    (isDateTime && navPropertyKey == default(DateTime)) ||
                                     navPropertyKey == 0)
                                 {
                                     var currentValue = GetProperty(navPropertyType, foreignKeyRelation.FromProperty,
                                         navProperty);
-                                    if ((isGuid && navPropertyKey != Guid.Empty) ||
-                                        (!isGuid && currentValue > 0))
+                                    if ((isGuid && navPropertyKey != default(Guid)) ||
+                                        (isDateTime && navPropertyKey != default(DateTime)) ||
+                                        (!(isGuid || isDateTime) && currentValue > 0))
                                     {
                                         SetProperty(foreignKeyRelation.ToProperty, entity, currentValue);
                                     }
@@ -1430,7 +1438,7 @@ namespace Tanneryd.BulkOperations.EF6
                         var request = new BulkUpdateRequest
                         {
                             Entities = navPropertySelfReferences.Select(e => e.Entity).Distinct().ToArray(),
-                            UpdatedColumnNames = navPropertySelfReferences.SelectMany(e => e.ForeignKeyProperties)
+                            UpdatedPropertyNames = navPropertySelfReferences.SelectMany(e => e.ForeignKeyProperties)
                                 .Distinct().ToArray(),
                             Transaction = sqlTransaction
                         };
@@ -2424,6 +2432,12 @@ namespace Tanneryd.BulkOperations.EF6
         {
             var isGuid = (t == typeof(Guid) || t == typeof(Guid?));
             return isGuid;
+        }
+
+        private static bool IsDateTime(Type t)
+        {
+            var isDateTime = (t == typeof(DateTime) || t == typeof(DateTime?));
+            return isDateTime;
         }
 
         /// <summary>
