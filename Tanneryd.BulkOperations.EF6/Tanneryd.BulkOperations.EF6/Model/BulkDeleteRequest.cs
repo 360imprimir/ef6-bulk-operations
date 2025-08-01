@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using Microsoft.Data.SqlClient;
+using System.Data.Common;
 
 namespace Tanneryd.BulkOperations.EF6.Model
 {
@@ -10,14 +10,14 @@ namespace Tanneryd.BulkOperations.EF6.Model
 
         public KeyPropertyMapping[] KeyPropertyMappings { get; set; }
         public IList<T> Items { get; set; }
-        public SqlTransaction Transaction { get; set; }
+        public DbTransaction Transaction { get; set; }
         public TimeSpan CommandTimeout { get; set; } = TimeSpan.FromMinutes(1);
 
         public BulkDeleteRequest(
             SqlCondition[] sqlConditions,
             string[] keyPropertyNames,
             IList<T> items = null,
-            SqlTransaction transaction = null)
+            DbTransaction transaction = null)
         {
             SqlConditions = sqlConditions;
             KeyPropertyMappings = KeyPropertyMapping.IdentityMappings(keyPropertyNames);

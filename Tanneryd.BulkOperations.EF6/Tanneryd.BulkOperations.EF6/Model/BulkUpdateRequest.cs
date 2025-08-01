@@ -16,7 +16,7 @@
 
 using System;
 using System.Collections;
-using Microsoft.Data.SqlClient;
+using System.Data.Common;
 
 namespace Tanneryd.BulkOperations.EF6.Model
 {
@@ -32,7 +32,7 @@ namespace Tanneryd.BulkOperations.EF6.Model
         public IList Entities { get; set; }
         public string[] UpdatedPropertyNames { get; set; }
         public string[] KeyPropertyNames { get; set; }
-        public SqlTransaction Transaction { get; set; }
+        public DbTransaction Transaction { get; set; }
         public bool InsertIfNew { get; set; }
         public TimeSpan CommandTimeout { get; set; } = TimeSpan.FromMinutes(30);
     }
