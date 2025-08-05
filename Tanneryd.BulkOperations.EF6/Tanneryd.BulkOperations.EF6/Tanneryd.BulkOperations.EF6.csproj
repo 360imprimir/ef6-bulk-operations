@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<TargetFrameworks>net472</TargetFrameworks>
-		<Version>2.1.1</Version>
+		<Version>3.0.0</Version>
 		<Authors>Måns Tånneryd</Authors>
 		<Company>Tånneryd IT AB</Company>
 		<Description>Provides bulk operations for EF6</Description>
@@ -11,11 +11,10 @@
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
 		<PackageLicenseFile>LICENSE-2.0.txt</PackageLicenseFile>
-		<PackageId>Tanneryd.BulkOperations.EF6</PackageId>
+		<PackageId>BinarySubject.BulkOperations.EF6</PackageId>
 		<PackageProjectUrl>https://www.nuget.org/packages/Tanneryd.BulkOperations.EF6</PackageProjectUrl>
 		<PackageReleaseNotes></PackageReleaseNotes>
 		<IncludeSymbols>true</IncludeSymbols>
-		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<EmbedAllSources>True</EmbedAllSources>
 		<LangVersion>Latest</LangVersion>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
@@ -36,7 +35,7 @@
 	<ItemGroup>
     <PackageReference Include="EntityFramework" Version="6.5.1" />
 		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.0" />
     <PackageReference Include="Microsoft.EntityFramework.SqlServer" Version="6.5.1" />
 	</ItemGroup>
 

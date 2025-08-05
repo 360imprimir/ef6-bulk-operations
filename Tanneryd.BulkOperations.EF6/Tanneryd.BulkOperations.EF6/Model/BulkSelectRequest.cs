@@ -16,13 +16,13 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.Data.SqlClient;
+using System.Data.Common;
 
 namespace Tanneryd.BulkOperations.EF6.Model
 {
     public class BulkSelectRequest<T>
     {
-        public BulkSelectRequest(string[] keyPropertyNames, IList<T> items = null, SqlTransaction transaction = null)
+        public BulkSelectRequest(string[] keyPropertyNames, IList<T> items = null, DbTransaction transaction = null)
         {
             KeyPropertyMappings = KeyPropertyMapping.IdentityMappings(keyPropertyNames);
             ColumnPropertyMappings = new KeyPropertyMapping[0];
@@ -37,7 +37,7 @@ namespace Tanneryd.BulkOperations.EF6.Model
         /// local entities if they match existing entities in the database.
         /// </summary>
         public KeyPropertyMapping[] ColumnPropertyMappings { get; set; }
-        public SqlTransaction Transaction { get; set; }
+        public DbTransaction Transaction { get; set; }
         public TimeSpan CommandTimeout { get; set; } = TimeSpan.FromMinutes(1);
 
         public BulkSelectRequest()
