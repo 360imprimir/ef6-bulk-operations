@@ -16,14 +16,14 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using System.Data.Common;
 
 namespace Tanneryd.BulkOperations.EF6.Model
 {
     public class BulkInsertRequest<T>
     {
         public IList<T> Entities { get; set; }
-        public SqlTransaction Transaction { get; set; }
+        public DbTransaction Transaction { get; set; }
         public bool UpdateStatistics { get; set; } = false;
         public EnableRecursiveInsert EnableRecursiveInsert { get; set; } = EnableRecursiveInsert.NoButRetrieveGeneratedPrimaryKeys;
         public AllowNotNullSelfReferences AllowNotNullSelfReferences { get; set; } = AllowNotNullSelfReferences.No;
